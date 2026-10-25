@@ -1,0 +1,7 @@
+# ESPHome
+esphome/secrets.yaml
+esphome/.esphome/
+.esphome/
+
+# Home Assistant
+homeassistant/secrets.yaml

@@ -1,0 +1,225 @@
+# RODI top-off reservoir level monitor
+#
+# Hardware
+#   - ESP32-S3 dev board
+#   - 350mm 0-190 Ohm reed float sender in a 5-gal bucket (~14" inside,
+#     rod bottom ~1" off the floor, which is about where the ATO pump stops
+#     pulling water)
+#
+# Wiring (voltage divider, sender on the ground side):
+#
+#   3V3 ── 220Ω 1% ──┬── GPIO4 (ADC1)
+#                    │
+#                  sender (0-190Ω)
+#                    │
+#   GND ─────────────┴── (optional 0.1µF from GPIO4 to GND)
+#
+#   0Ω -> 0.00V, 190Ω -> ~1.53V. An open circuit (sender unplugged) reads
+#   close to 3.3V and is reported as "Sender Fault".
+#
+# Before first use, see the CALIBRATION section below and README.md.
+
+substitutions:
+  name: rodi-reservoir
+  friendly_name: RODI Reservoir
+  adc_pin: GPIO4 # any ADC1 pin works on the S3 (GPIO1-GPIO10)
+  series_resistor: 220Ω
+
+  # Usable gallons when the float is at the top of its travel. Level is
+  # reported as *usable* water: 0 gal means the ATO pump can't pull any more.
+  usable_capacity_gal: "4.6"
+
+  # Usage tracking. Drops smaller than the deadband are treated as float /
+  # ADC noise. A rise bigger than the refill threshold is treated as a refill
+  # and is never counted as usage.
+  usage_deadband_gal: "0.03"
+  refill_threshold_gal: "0.30"
+
+  # Resistance above this means the sender is disconnected or broken.
+  fault_resistance_ohm: "250"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.6.0
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+# Persist the lifetime usage counter. A long interval saves flash wear; at
+# worst a power cut loses a few minutes of usage.
+preferences:
+  flash_write_interval: 10min
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+# Standalone web UI and REST/SSE API at http://rodi-reservoir.local/
+# Works without Home Assistant, so a phone app or page can read it directly.
+web_server:
+  port: 80
+  version: 3
+  # Uncomment to require a login.
+  # auth:
+  #   username: !secret web_username
+  #   password: !secret web_password
+
+globals:
+  # Lifetime gallons used (only ever goes up). Survives reboots.
+  - id: used_total_gal
+    type: float
+    restore_value: true
+    initial_value: "0.0"
+  # Lowest level seen since the last refill; usage is measured against it.
+  - id: usage_ref_gal
+    type: float
+    restore_value: false
+    initial_value: "NAN"
+
+sensor:
+  # Raw divider voltage. Sampled every second and median-filtered so the
+  # published value updates every 15s.
+  - platform: adc
+    id: sender_voltage
+    name: Sender Voltage
+    pin: ${adc_pin}
+    attenuation: 12db
+    samples: 8
+    update_interval: 1s
+    accuracy_decimals: 3
+    entity_category: diagnostic
+    filters:
+      - median:
+          window_size: 15
+          send_every: 15
+          send_first_at: 15
+
+  # Sender resistance in ohms. Use this entity while calibrating.
+  - platform: resistance
+    id: sender_resistance
+    name: Sender Resistance
+    sensor: sender_voltage
+    configuration: DOWNSTREAM
+    resistor: ${series_resistor}
+    reference_voltage: 3.3V
+    accuracy_decimals: 1
+    entity_category: diagnostic
+
+  # Usable gallons in the reservoir.
+  - platform: copy
+    id: level_gal
+    name: Level
+    source_id: sender_resistance
+    unit_of_measurement: gal
+    device_class: volume_storage
+    state_class: measurement
+    icon: mdi:cup-water
+    accuracy_decimals: 2
+    filters:
+      # Drop readings from a disconnected sender instead of reporting them.
+      - lambda: |-
+          if (std::isnan(x) || x > ${fault_resistance_ohm}) return {};
+          return x;
+      # ===================== CALIBRATION =====================
+      # PLACEHOLDER POINTS. Replace once the sender is installed.
+      # Each line is "<Sender Resistance in Ω> -> <usable gallons>".
+      # The 0Ω/190Ω ends below assume the sender reads low when empty; some
+      # senders are the other way round, so check which end is which first.
+      # With 3+ points in a tapered bucket, least_squares gives the best line;
+      # if it still bows, switch to calibrate_polynomial (degree: 2).
+      - calibrate_linear:
+          method: least_squares
+          datapoints:
+            - 0.0 -> 0.0 # TODO CALIBRATE: float at bottom of travel
+            - 190.0 -> ${usable_capacity_gal} # TODO CALIBRATE: float at top
+      # =======================================================
+      - clamp:
+          min_value: 0
+          max_value: ${usable_capacity_gal}
+    on_value:
+      then:
+        - lambda: |-
+            if (std::isnan(x)) return;
+            if (std::isnan(id(usage_ref_gal))) {
+              id(usage_ref_gal) = x;
+              return;
+            }
+            const float drop = id(usage_ref_gal) - x;
+            if (drop >= ${usage_deadband_gal}) {
+              id(used_total_gal) += drop;
+              id(usage_ref_gal) = x;
+              id(water_used).publish_state(id(used_total_gal));
+            } else if (-drop >= ${refill_threshold_gal}) {
+              ESP_LOGI("reservoir", "Refill detected: %.2f -> %.2f gal", id(usage_ref_gal), x);
+              id(usage_ref_gal) = x;
+            }
+
+  - platform: copy
+    id: level_percent
+    name: Level Percent
+    source_id: level_gal
+    unit_of_measurement: "%"
+    state_class: measurement
+    icon: mdi:water-percent
+    accuracy_decimals: 0
+    filters:
+      - lambda: return x / ${usable_capacity_gal} * 100.0;
+
+  # Lifetime usage counter for Home Assistant's utility_meter (usage/day).
+  - platform: template
+    id: water_used
+    name: Water Used
+    unit_of_measurement: gal
+    device_class: water
+    state_class: total_increasing
+    icon: mdi:water-minus
+    accuracy_decimals: 2
+    update_interval: 5min
+    lambda: return id(used_total_gal);
+
+  - platform: wifi_signal
+    name: WiFi Signal
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: uptime
+    name: Uptime
+    entity_category: diagnostic
+
+binary_sensor:
+  - platform: status
+    name: Status
+
+  # On when the sender reads open circuit (unplugged, broken wire, bad reed).
+  - platform: template
+    id: sender_fault
+    name: Sender Fault
+    device_class: problem
+    entity_category: diagnostic
+    lambda: |-
+      if (!id(sender_resistance).has_state()) return {};
+      return std::isnan(id(sender_resistance).state) ||
+             id(sender_resistance).state > ${fault_resistance_ohm};
+
+button:
+  - platform: restart
+    name: Restart
+    entity_category: config
