@@ -1,0 +1,34 @@
+# Dashboard card. In a dashboard: Add card > Manual, then paste this.
+type: vertical-stack
+cards:
+  - type: gauge
+    name: RODI Reservoir
+    entity: sensor.rodi_reservoir_level_percent
+    min: 0
+    max: 100
+    needle: true
+    severity:
+      green: 40
+      yellow: 20
+      red: 0
+  - type: entities
+    entities:
+      - entity: sensor.rodi_reservoir_level
+        name: Usable water
+      - entity: sensor.rodi_reservoir_days_remaining
+        name: Days remaining
+      - entity: sensor.rodi_reservoir_usage_daily
+        name: Used today
+      - entity: sensor.rodi_reservoir_average_daily_usage
+        name: Average per day (7d)
+      - entity: binary_sensor.rodi_reservoir_sender_fault
+        name: Sender fault
+  - type: statistics-graph
+    title: Daily usage
+    entities:
+      - sensor.rodi_reservoir_usage_daily
+    stat_types:
+      - max
+    period: day
+    days_to_show: 30
+    chart_type: bar
