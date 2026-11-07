@@ -2,20 +2,21 @@
 #
 # Hardware
 #   - ESP32-S3 dev board
-#   - 350mm 0-190 Ohm reed float sender in a 5-gal bucket (~14" inside,
-#     rod bottom ~1" off the floor, which is about where the ATO pump stops
-#     pulling water)
+#   - 350mm reed float sender, measured ~33 Ohm with the float at the top
+#     (full) and ~241 Ohm at the bottom (empty). Not the 0-190 Ohm in the
+#     listing. Mounted with hardware/rodi-rim-mount.scad in a 5-gal bucket,
+#     rod tip ~1" off the floor.
 #
 # Wiring (voltage divider, sender on the ground side):
 #
 #   3V3 ── 220Ω 1% ──┬── GPIO4 (ADC1)
 #                    │
-#                  sender (0-190Ω)
+#                  sender (33-241Ω)
 #                    │
 #   GND ─────────────┴── (optional 0.1µF from GPIO4 to GND)
 #
-#   0Ω -> 0.00V, 190Ω -> ~1.53V. An open circuit (sender unplugged) reads
-#   close to 3.3V and is reported as "Sender Fault".
+#   33Ω (full) -> ~0.43V, 241Ω (empty) -> ~1.72V. An open circuit (sender
+#   unplugged) reads close to 3.3V and is reported as "Sender Fault".
 #
 # Before first use, see the CALIBRATION section below and README.md.
 
@@ -27,7 +28,9 @@ substitutions:
 
   # Usable gallons when the float is at the top of its travel. Level is
   # reported as *usable* water: 0 gal means the ATO pump can't pull any more.
-  usable_capacity_gal: "4.6"
+  # ESTIMATE from bucket geometry (hardware/calibration_estimate.py); set it
+  # to the top calibration point after a fill test.
+  usable_capacity_gal: "4.85"
 
   # Usage tracking. Drops smaller than the deadband are treated as float /
   # ADC noise. A rise bigger than the refill threshold is treated as a refill
@@ -35,8 +38,9 @@ substitutions:
   usage_deadband_gal: "0.03"
   refill_threshold_gal: "0.30"
 
-  # Resistance above this means the sender is disconnected or broken.
-  fault_resistance_ohm: "250"
+  # Resistance above this means the sender is disconnected or broken. The
+  # sender reads ~241Ω when empty, so keep this well above that.
+  fault_resistance_ohm: "350"
 
 esphome:
   name: ${name}
@@ -139,17 +143,22 @@ sensor:
           if (std::isnan(x) || x > ${fault_resistance_ohm}) return {};
           return x;
       # ===================== CALIBRATION =====================
-      # PLACEHOLDER POINTS. Replace once the sender is installed.
-      # Each line is "<Sender Resistance in Ω> -> <usable gallons>".
-      # The 0Ω/190Ω ends below assume the sender reads low when empty; some
-      # senders are the other way round, so check which end is which first.
-      # With 3+ points in a tapered bucket, least_squares gives the best line;
-      # if it still bows, switch to calibrate_polynomial (degree: 2).
+      # ESTIMATE from geometry, not a fill test yet. The sender is inverted:
+      # low ohms = full. Points come from hardware/calibration_estimate.py
+      # (float travel, bucket taper, 1" pump cutoff). "exact" interpolates
+      # between points, which follows the taper. The float bottoms out with
+      # ~0.3 gal still usable, so the level never reads lower than that.
+      # Replace with fill-test points (README.md) when you can.
       - calibrate_linear:
-          method: least_squares
+          method: exact
           datapoints:
-            - 0.0 -> 0.0 # TODO CALIBRATE: float at bottom of travel
-            - 190.0 -> ${usable_capacity_gal} # TODO CALIBRATE: float at top
+            - 241.0 -> 0.30 # float on bottom stop (~1.8" of water)
+            - 206.3 -> 1.01
+            - 171.7 -> 1.74
+            - 137.0 -> 2.49
+            - 102.3 -> 3.26
+            - 67.7 -> 4.05
+            - 33.0 -> 4.85 # float on top stop (~13.3" of water)
       # =======================================================
       - clamp:
           min_value: 0
