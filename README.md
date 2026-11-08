@@ -13,12 +13,16 @@ uses per day, and sends phone alerts before it runs dry.
 | `esphome/secrets.yaml.example` | Template for the git-ignored `secrets.yaml` |
 | `homeassistant/packages/rodi_reservoir.yaml` | Usage/day, days remaining, alerts |
 | `homeassistant/dashboards/rodi_reservoir_card.yaml` | Optional dashboard card |
+| `hardware/rodi-rim-mount.scad` / `.stl` | PETG rim-hook mount for the sender |
+| `hardware/calibration_estimate.py` | Geometry estimate of the calibration points |
 
 ### Hardware
 
 - ESP32-S3 dev board, powered from a 5V USB-C brick
-- 350mm 0-190 Ω reed float sender (SAE 5-hole flange) on a 3D-printed rim
-  mount, rod bottom about 1" off the floor of a 5-gal bucket
+- 350mm reed float sender (SAE 5-hole flange). Listed as 0-190 Ω but
+  measures ~33 Ω full (float up) and ~241 Ω empty (float down)
+- 3D-printed rim mount (`hardware/`), rod tip about 1" off the floor of a
+  5-gal bucket
 - 220 Ω 1% resistor, optional 0.1 µF cap, 2-conductor 22-24 AWG
 
 ```
@@ -32,6 +36,20 @@ GND ──────────┘
 Any ADC1 pin (GPIO1-GPIO10) works; change `adc_pin` in the substitutions if
 you use a different one. Don't use ADC2 pins, they conflict with WiFi.
 
+### Rim mount
+
+`hardware/rodi-rim-mount.scad` hooks over the bucket rim and holds the sender
+60 mm inside the wall. The flange seat sits ~18 mm above the rim so the rod tip
+hangs 1" off the floor and the float reads from ~1.8" to ~13.3" of water.
+Print it upside down (flange seat on the bed) in PETG, no supports. The flange
+bolts down with five #10 (or M5) screws, nuts captive on the underside.
+
+Measured: sender stops, float, flange OD and thickness, rim lip, bucket
+height. Assumed (check before printing, all are parameters at the top of the
+file): standard SAE bolt circle of 54 mm, inside depth 14", rod tip 5 mm past
+the bottom stop, outer hook leg 12 mm long. Re-export with
+`openscad -o rodi-rim-mount.stl rodi-rim-mount.scad`.
+
 ### Flashing
 
 ```sh
@@ -44,36 +62,40 @@ After the first flash it updates over WiFi. The device also serves its own
 web page at `http://rodi-reservoir.local/` (ESPHome `web_server`), which works
 without Home Assistant and exposes a REST/event API for a future app.
 
-### Calibration (needed once the sender is installed)
+### Calibration (refine once the sender is installed)
 
-The `calibrate_linear` points in `esphome/rodi-reservoir.yaml` are
-placeholders (marked `TODO CALIBRATE`). "Level" is **usable** gallons: 0 means
-the ATO pump can't pull any more.
+The `calibrate_linear` points in `esphome/rodi-reservoir.yaml` are an
+**estimate** from the bucket geometry (`hardware/calibration_estimate.py`),
+not a fill test. "Level" is **usable** gallons: 0 means the ATO pump can't
+pull any more. The float bottoms out with ~0.3 gal still usable, so the level
+never reads lower than that. To replace the estimate:
 
 1. Mount the sender and flash the firmware. Open the device web page and
    watch **Sender Resistance**.
-2. Fill the bucket to where the ATO pump stops pulling (about 1"). Wait for
-   the reading to settle and note the ohms. That is `-> 0.0`.
-3. Add water in measured amounts (a 1 qt or 1 gal jug), noting the ohms
-   after each. More points give a better fit, since the bucket tapers.
+2. Fill the bucket to where the ATO pump stops pulling (about 1"). That is
+   0 gal usable. The float is still sitting on its bottom stop (~241 Ω).
+3. Add water in measured amounts (a 1 qt or 1 gal jug), counting the gallons
+   you've added and noting the ohms after each once it settles. Use the
+   reading just before the ohms start dropping as the `241 -> x` point. More
+   points give a better fit, since the bucket tapers.
 4. Replace the datapoints, e.g.
 
    ```yaml
    - calibrate_linear:
-       method: least_squares
+       method: exact
        datapoints:
-         - 12.0 -> 0.0
-         - 55.0 -> 1.0
-         - 98.0 -> 2.0
-         - 140.0 -> 3.0
-         - 181.0 -> 4.0
+         - 241.0 -> 0.3
+         - 200.0 -> 1.0
+         - 158.0 -> 2.0
+         - 115.0 -> 3.0
+         - 71.0 -> 4.0
    ```
 
 5. Set `usable_capacity_gal` to the gallons at the top of the float's travel,
    then reflash.
 
-If the resistance goes *down* as the bucket fills, the sender is wired the
-other way round. The datapoints handle that, nothing else needs changing.
+This sender's resistance goes *down* as the bucket fills. The datapoints
+handle that, nothing else needs changing.
 
 ### Home Assistant
 
