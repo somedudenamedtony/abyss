@@ -14,6 +14,7 @@ uses per day, and sends phone alerts before it runs dry.
 | `homeassistant/packages/rodi_reservoir.yaml` | Usage/day, days remaining, alerts |
 | `homeassistant/dashboards/rodi_reservoir_card.yaml` | Optional dashboard card |
 | `hardware/rodi-rim-mount.scad` / `.stl` | PETG rim-hook mount for the sender |
+| `hardware/rodi-controller-box.scad` / `-body.stl` / `-lid.stl` | PETG box for the ESP32-S3 that hangs on the outside of the rim |
 | `hardware/calibration_estimate.py` | Geometry estimate of the calibration points |
 
 ### Hardware
@@ -49,6 +50,29 @@ height. Assumed (check before printing, all are parameters at the top of the
 file): standard SAE bolt circle of 54 mm, inside depth 14", rod tip 5 mm past
 the bottom stop, outer hook leg 12 mm long. Re-export with
 `openscad -o rodi-rim-mount.stl rodi-rim-mount.scad`.
+
+### Controller box
+
+`hardware/rodi-controller-box.scad` is a small PETG box that hooks over the
+rim beside the sender mount and hangs on the *outside* of the bucket, so the
+board stays dry during refills. Outside size about 37 x 31 x 97 mm; the top
+sits 4 mm above the rim. The board stands upright, USB-C end down: the
+antenna end is gripped by short slots in the floor and lid, the bottom by the
+USB-C plug through the bottom wall. The sender wire comes in through a 5.5 mm
+hole next to it (cinch a zip tie on the cable inside for strain relief).
+Leave a drip loop in both cables below the box. There is room above the board
+for the 220 Ω resistor and a 2-pole lever nut.
+
+Print `rodi-controller-box-body.stl` on its closed side, open side up, and
+`rodi-controller-box-lid.stl` flat; no supports. The lid takes 4 x M3 x 10
+self-tapping (or #4 sheet-metal) screws.
+
+Assumed: an ESP32-S3-DevKitC-1 size board (~70 x 25.4 mm) with headers
+pointing toward the bucket. For another board, change `[Board]` at the top
+of the file and re-export with
+`openscad -D 'part="body"' -o rodi-controller-box-body.stl rodi-controller-box.scad`
+(and `part="lid"`). If ridges under the rim push the bottom of the box out,
+raise `standoff`.
 
 ### Flashing
 
