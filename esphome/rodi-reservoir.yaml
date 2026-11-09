@@ -152,13 +152,14 @@ sensor:
       - calibrate_linear:
           method: exact
           datapoints:
-            - 241.0 -> 0.30 # float on bottom stop (~1.8" of water)
-            - 206.3 -> 1.01
-            - 171.7 -> 1.74
-            - 137.0 -> 2.49
-            - 102.3 -> 3.26
-            - 67.7 -> 4.05
+            # ESPHome requires the "from" (ohms) values in ascending order.
             - 33.0 -> 4.85 # float on top stop (~13.3" of water)
+            - 67.7 -> 4.05
+            - 102.3 -> 3.26
+            - 137.0 -> 2.49
+            - 171.7 -> 1.74
+            - 206.3 -> 1.01
+            - 241.0 -> 0.30 # float on bottom stop (~1.8" of water)
       # =======================================================
       - clamp:
           min_value: 0
