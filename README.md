@@ -84,12 +84,14 @@ never reads lower than that. To replace the estimate:
    - calibrate_linear:
        method: exact
        datapoints:
-         - 241.0 -> 0.3
-         - 200.0 -> 1.0
-         - 158.0 -> 2.0
-         - 115.0 -> 3.0
          - 71.0 -> 4.0
+         - 115.0 -> 3.0
+         - 158.0 -> 2.0
+         - 200.0 -> 1.0
+         - 241.0 -> 0.3
    ```
+
+   ESPHome rejects the config unless the ohm values go from low to high.
 
 5. Set `usable_capacity_gal` to the gallons at the top of the float's travel,
    then reflash.
