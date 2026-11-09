@@ -55,7 +55,7 @@ the bottom stop, outer hook leg 12 mm long. Re-export with
 
 `hardware/rodi-controller-box.scad` is a small PETG box that hooks over the
 rim beside the sender mount and hangs on the *outside* of the bucket, so the
-board stays dry during refills. Outside size about 37 x 31 x 97 mm; the top
+board stays dry during refills. Outside size about 43 x 31 x 97 mm; the top
 sits 4 mm above the rim. The board stands upright, USB-C end down: the
 antenna end is gripped by short slots in the floor and lid, the bottom by the
 USB-C plug through the bottom wall. The sender wire comes in through a 5.5 mm
@@ -68,7 +68,7 @@ Print `rodi-controller-box-body.stl` on its closed side, open side up, and
 self-tapping (or #4 sheet-metal) screws.
 
 Assumed: an ESP32-S3-DevKitC-1 size board (~70 x 25.4 mm) with headers
-pointing toward the bucket. For another board, change `[Board]` at the top
+pointing toward the bucket, with room behind them for female Dupont jumpers. For another board, change `[Board]` at the top
 of the file and re-export with
 `openscad -D 'part="body"' -o rodi-controller-box-body.stl rodi-controller-box.scad`
 (and `part="lid"`). If ridges under the rim push the bottom of the box out,

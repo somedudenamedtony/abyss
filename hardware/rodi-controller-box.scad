@@ -55,8 +55,9 @@ board_lift = 0.5;
 wall = 2.4;
 // Free space above the board for the 220R resistor and a 2-pole lever nut
 top_space = 22;
-// Free space between the back wall and the header pins
-back_space = 6.5;
+// Free space between the back wall and the header pin tips. 12mm leaves
+// room for female Dupont jumpers pushed onto the pins (~14mm housing + bend)
+back_space = 12;
 // Free space in front of the board components
 front_space = 8;
 // Cable hole for the 2-conductor sender wire
