@@ -13,8 +13,9 @@
 #   sensor.rodi_reservoir_water_used      lifetime gallons used (total_increasing)
 #   binary_sensor.rodi_reservoir_sender_fault
 #
-# Alerts go through script.rodi_reservoir_notify. Change the notify service
-# there (e.g. notify.mobile_app_tonys_phone) to send to your phone.
+# Alerts go through script.rodi_reservoir_notify, which sends to Tony's phone
+# ("Fat Amy" in the Companion app, notify.mobile_app_fat_amy). Change the
+# action there to send somewhere else.
 
 input_number:
   rodi_reservoir_low_gal:
@@ -32,7 +33,19 @@ input_number:
     min: 0
     max: 2
     step: 0.1
-    initial: 0.4
+    initial: 0.75
+    mode: box
+    icon: mdi:water-alert-outline
+  # "Empty" as far as the sender can tell: the float sits on its bottom stop
+  # at ~0.30 gal usable, so the level never reads much lower than that. Once
+  # it's down there the ATO has only a little water left before it runs dry.
+  rodi_reservoir_empty_gal:
+    name: RODI Reservoir empty alert
+    unit_of_measurement: gal
+    min: 0
+    max: 1
+    step: 0.05
+    initial: 0.35
     mode: box
     icon: mdi:water-off
   # More than this used in one hour is almost certainly not evaporation:
@@ -117,8 +130,7 @@ script:
       message:
         description: Notification body
     sequence:
-      # TODO: change to your phone, e.g. notify.mobile_app_tonys_phone
-      - action: notify.notify
+      - action: notify.mobile_app_fat_amy
         data:
           title: "{{ title }}"
           message: "{{ message }}"
@@ -167,6 +179,10 @@ automation:
       - condition: numeric_state
         entity_id: sensor.rodi_reservoir_level
         below: input_number.rodi_reservoir_critical_gal
+      # The empty alert takes over below this.
+      - condition: numeric_state
+        entity_id: sensor.rodi_reservoir_level
+        above: input_number.rodi_reservoir_empty_gal
     actions:
       - action: script.rodi_reservoir_notify
         data:
@@ -174,6 +190,29 @@ automation:
           message: >
             Only {{ states('sensor.rodi_reservoir_level') }} gal left.
             Refill now or the ATO will run dry.
+
+  - id: rodi_reservoir_empty
+    alias: RODI Reservoir empty
+    mode: single
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.rodi_reservoir_level
+        below: input_number.rodi_reservoir_empty_gal
+        for: "00:05:00"
+      # Keep nagging every 2 hours until it's refilled.
+      - trigger: time_pattern
+        hours: "/2"
+    conditions:
+      - condition: numeric_state
+        entity_id: sensor.rodi_reservoir_level
+        below: input_number.rodi_reservoir_empty_gal
+    actions:
+      - action: script.rodi_reservoir_notify
+        data:
+          title: RODI reservoir EMPTY
+          message: >
+            The float is on the bottom ({{ states('sensor.rodi_reservoir_level') }} gal).
+            Refill it now, the ATO is about to run dry.
 
   - id: rodi_reservoir_runaway
     alias: RODI Reservoir runaway usage

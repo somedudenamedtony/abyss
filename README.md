@@ -108,8 +108,11 @@ handle that, nothing else needs changing.
      packages: !include_dir_named packages
    ```
 
-3. Edit `script.rodi_reservoir_notify` in the package to point at your phone
-   (`notify.mobile_app_<phone>`), then restart Home Assistant.
+3. Alerts go to `notify.mobile_app_fat_amy` (Tony's phone). To send them
+   somewhere else, edit `script.rodi_reservoir_notify` in the package. Then
+   restart Home Assistant.
+4. For the tracker card, paste `homeassistant/dashboards/rodi_reservoir_card.yaml`
+   into a dashboard (Add card > Manual).
 
 You get:
 
@@ -117,7 +120,8 @@ You get:
   over the last 7 days
 - **Days remaining** at the current rate
 - Alerts: low (default 1.0 gal, plus a 9am reminder while low), critical
-  (0.4 gal, repeats every 4h), runaway usage (more than 0.5 gal in an hour,
+  (0.75 gal, repeats every 4h), empty (float on its bottom stop, below
+  0.35 gal, repeats every 2h until refilled), runaway usage (more than 0.5 gal in an hour,
   usually a stuck ATO or a siphon), and sender fault / device offline
 
 Alert thresholds are `input_number` helpers, so you can tune them from the UI.

@@ -1,34 +1,72 @@
-# Dashboard card. In a dashboard: Add card > Manual, then paste this.
+# RODI reservoir tracker card.
+#
+# Paste into any dashboard: Edit dashboard > Add card > Manual, then paste
+# everything below. Needs the ESPHome device "rodi-reservoir" and
+# homeassistant/packages/rodi_reservoir.yaml (for days remaining and the
+# usage sensors).
 type: vertical-stack
 cards:
   - type: gauge
     name: RODI Reservoir
-    entity: sensor.rodi_reservoir_level_percent
+    entity: sensor.rodi_reservoir_level
+    unit: gal
     min: 0
-    max: 100
+    max: 4.85
     needle: true
     severity:
-      green: 40
-      yellow: 20
       red: 0
-  - type: entities
+      yellow: 0.75
+      green: 1.5
+  - type: glance
+    show_state: true
     entities:
-      - entity: sensor.rodi_reservoir_level
-        name: Usable water
+      - entity: sensor.rodi_reservoir_level_percent
+        name: Full
       - entity: sensor.rodi_reservoir_days_remaining
-        name: Days remaining
+        name: Days left
       - entity: sensor.rodi_reservoir_usage_daily
         name: Used today
       - entity: sensor.rodi_reservoir_average_daily_usage
-        name: Average per day (7d)
-      - entity: binary_sensor.rodi_reservoir_sender_fault
-        name: Sender fault
-  - type: statistics-graph
-    title: Daily usage
+        name: Avg / day
+  - type: history-graph
+    title: Level, last 7 days
+    hours_to_show: 168
     entities:
-      - sensor.rodi_reservoir_usage_daily
+      - entity: sensor.rodi_reservoir_level
+        name: Usable water
+  - type: statistics-graph
+    title: Water used per day
+    entities:
+      - sensor.rodi_reservoir_water_used
     stat_types:
-      - max
+      - change
     period: day
     days_to_show: 30
     chart_type: bar
+  - type: entities
+    title: Reservoir details
+    show_header_toggle: false
+    entities:
+      - entity: sensor.rodi_reservoir_water_used
+        name: Water used (since reset)
+      - entity: sensor.rodi_reservoir_usage_weekly
+        name: Used this week
+      - entity: binary_sensor.rodi_reservoir_sender_fault
+        name: Sender fault
+      - entity: input_number.rodi_reservoir_low_gal
+        name: Low alert below
+      - entity: input_number.rodi_reservoir_critical_gal
+        name: Critical alert below
+      - entity: input_number.rodi_reservoir_empty_gal
+        name: Empty alert below
+      - type: button
+        entity: button.rodi_reservoir_reset_water_used
+        name: Reset water used
+        action_name: Reset
+        tap_action:
+          action: perform-action
+          perform_action: button.press
+          target:
+            entity_id: button.rodi_reservoir_reset_water_used
+          confirmation:
+            text: Zero the Water Used counter?
