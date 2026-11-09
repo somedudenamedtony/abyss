@@ -237,3 +237,16 @@ button:
   - platform: restart
     name: Restart
     entity_category: config
+
+  # Zero the lifetime usage counter, e.g. after testing the float by hand.
+  # Home Assistant's utility_meter treats the drop to 0 as a meter reset.
+  - platform: template
+    name: Reset Water Used
+    icon: mdi:counter
+    entity_category: config
+    on_press:
+      - lambda: |-
+          id(used_total_gal) = 0.0f;
+          id(usage_ref_gal) = id(level_gal).has_state() ? id(level_gal).state : NAN;
+          id(water_used).publish_state(0.0f);
+          ESP_LOGI("reservoir", "Water Used reset to 0");
