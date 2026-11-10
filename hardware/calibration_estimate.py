@@ -54,7 +54,7 @@ def main():
           f"below pump cutoff {v0:.2f} gal")
     print("\n- calibrate_linear:\n    method: exact\n    datapoints:")
     n = 6
-    for i in range(n + 1):
+    for i in reversed(range(n + 1)):  # ESPHome wants ohms ascending
         f = i / n                      # 0 = float at bottom, 1 = at top
         ohm = ohm_empty + (ohm_full - ohm_empty) * f
         wl = wl_bot + (wl_top - wl_bot) * f

@@ -168,13 +168,18 @@ sensor:
       - calibrate_linear:
           method: exact
           datapoints:
-            - 241.0 -> 0.30 # float on bottom stop (~1.8" of water)
-            - 206.3 -> 1.01
-            - 171.7 -> 1.74
-            - 137.0 -> 2.49
-            - 102.3 -> 3.26
-            - 67.7 -> 4.05
-            - 33.0 -> 4.85 # float on top stop (~13.3" of water)
+            # ESPHome requires the "from" (ohms) values in ascending order.
+            # Ohms are what the ESP32 reports, not the multimeter: the ADC
+            # reads the sender ~12% low (212 Ohm at the bottom stop vs 241
+            # on the meter, 2026-11-09), so the geometry estimate is scaled
+            # by 212.1/241.
+            - 29.0 -> 4.85 # float on top stop (~13.3" of water)
+            - 59.6 -> 4.05
+            - 90.0 -> 3.26
+            - 120.6 -> 2.49
+            - 151.1 -> 1.74
+            - 181.6 -> 1.01
+            - 212.1 -> 0.30 # float on bottom stop (~1.8" of water)
       # =======================================================
       - clamp:
           min_value: 0
@@ -248,3 +253,16 @@ button:
   - platform: restart
     name: Restart
     entity_category: config
+
+  # Zero the lifetime usage counter, e.g. after testing the float by hand.
+  # Home Assistant's utility_meter treats the drop to 0 as a meter reset.
+  - platform: template
+    name: Reset Water Used
+    icon: mdi:counter
+    entity_category: config
+    on_press:
+      - lambda: |-
+          id(used_total_gal) = 0.0f;
+          id(usage_ref_gal) = id(level_gal).has_state() ? id(level_gal).state : NAN;
+          id(water_used).publish_state(0.0f);
+          ESP_LOGI("reservoir", "Water Used reset to 0");
