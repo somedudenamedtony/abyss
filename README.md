@@ -13,7 +13,8 @@ uses per day, and sends phone alerts before it runs dry.
 | `esphome/secrets.yaml.example` | Template for the git-ignored `secrets.yaml` |
 | `homeassistant/packages/rodi_reservoir.yaml` | Usage/day, days remaining, alerts |
 | `homeassistant/dashboards/rodi_reservoir_card.yaml` | Optional dashboard card |
-| `hardware/rodi-rim-mount.scad` / `.stl` | PETG rim-hook mount for the sender |
+| `hardware/rodi-combined-mount.scad` / `-body.stl` / `-lid.stl` | PETG rim mount for the sender + ESP32-S3 box in one part |
+| `hardware/rodi-rim-mount.scad` / `.stl` | Older sender-only rim mount (superseded) |
 | `hardware/calibration_estimate.py` | Geometry estimate of the calibration points |
 
 ### Hardware
@@ -21,34 +22,46 @@ uses per day, and sends phone alerts before it runs dry.
 - ESP32-S3 dev board, powered from a 5V USB-C brick
 - 350mm reed float sender (SAE 5-hole flange). Listed as 0-190 Ω but
   measures ~33 Ω full (float up) and ~241 Ω empty (float down)
-- 3D-printed rim mount (`hardware/`), rod tip about 1" off the floor of a
-  5-gal bucket
+- 3D-printed combined mount (`hardware/`): sender rod tip about 1" off the
+  floor of a 5-gal bucket, controller box hanging outside the rim
 - 220 Ω 1% resistor, optional 0.1 µF cap, 2-conductor 22-24 AWG
 
 ```
-3V3 ── 220Ω ──┬── GPIO4 (ADC1)
+3V3 ── 220Ω ──┬── GPIO4 (ADC1) ── sender brown (signal)
               │
-            sender
+           0.1µF (optional)
               │
-GND ──────────┘
+GND ──────────┴──────────────── sender blue (negative)
 ```
 
 Any ADC1 pin (GPIO1-GPIO10) works; change `adc_pin` in the substitutions if
 you use a different one. Don't use ADC2 pins, they conflict with WiFi.
 
-### Rim mount
+### Mount
 
-`hardware/rodi-rim-mount.scad` hooks over the bucket rim and holds the sender
-60 mm inside the wall. The flange seat sits ~18 mm above the rim so the rod tip
-hangs 1" off the floor and the float reads from ~1.8" to ~13.3" of water.
-Print it upside down (flange seat on the bed) in PETG, no supports. The flange
-bolts down with five #10 (or M5) screws, nuts captive on the underside.
+`hardware/rodi-combined-mount.scad` is one part that hooks over the bucket
+rim. Inside the bucket an arm holds the sender 60 mm in from the wall with the
+flange seat ~18 mm above the rim, so the rod tip hangs 1" off the floor and the
+float reads from ~1.8" to ~13.3" of water. Outside the bucket a box hangs
+~40 mm below the rim and holds the ESP32-S3 lying flat with its header pins
+pointing down, over a ~48 mm wiring bay for the Dupont jumpers, lever nuts,
+resistor and cap. USB-C comes in through a slot in one end wall at board
+height; the sender cable comes in through a 7 mm hole in the floor (leave a
+drip loop). The lid is held by 4 x M3 x 10 self-tapping screws.
 
-Measured: sender stops, float, flange OD and thickness, rim lip, bucket
-height. Assumed (check before printing, all are parameters at the top of the
-file): standard SAE bolt circle of 54 mm, inside depth 14", rod tip 5 mm past
-the bottom stop, outer hook leg 12 mm long. Re-export with
-`openscad -o rodi-rim-mount.stl rodi-rim-mount.scad`.
+The sender flange bolts down with five M5 x 16 screws, nuts captive on the
+plate underside. The holes are not evenly spaced (gaps 72/68/80/68/72 deg,
+per the sender's drawing); the 80 deg gap is the cable side and faces the
+wall. The rim hook gap is the one from the old controller box (6.95 mm).
+
+Print the body upside down (flange seat, arm top and box rim are one flat
+plane on the bed) in PETG, no supports. Print the lid flat.
+
+Assumed (parameters at the top of the file): inside depth 14", rod tip 5 mm
+past the bottom stop, bucket inside radius 142.9 mm at the rim (the inner hook
+leg is curved to it), DevKitC-1 size board (~70 x 25.4 mm). Re-export with
+`openscad -o rodi-combined-mount-body.stl -D 'part="body"' rodi-combined-mount.scad`
+(and `part="lid"`).
 
 ### Flashing
 

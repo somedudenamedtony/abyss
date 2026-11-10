@@ -4,7 +4,7 @@
 #   - ESP32-S3 dev board
 #   - 350mm reed float sender, measured ~33 Ohm with the float at the top
 #     (full) and ~241 Ohm at the bottom (empty). Not the 0-190 Ohm in the
-#     listing. Mounted with hardware/rodi-rim-mount.scad in a 5-gal bucket,
+#     listing. Mounted with hardware/rodi-combined-mount.scad in a 5-gal bucket,
 #     rod tip ~1" off the floor.
 #
 # Wiring (voltage divider, sender on the ground side):
