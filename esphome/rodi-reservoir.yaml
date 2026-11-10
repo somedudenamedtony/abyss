@@ -99,8 +99,17 @@ globals:
     initial_value: "NAN"
 
 sensor:
-  # Raw divider voltage. Sampled every second and median-filtered so the
-  # published value updates every 15s.
+  # Raw divider voltage, filtered in two stages so Wi-Fi bursts and float
+  # bob don't show up as level spikes (seen as ~+3% blips that also got
+  # counted as usage when they dropped back). Works without the 0.1uF cap,
+  # but the cap is still worth adding.
+  #   1. Median of 15 one-second samples -> one value every 15s. Kills
+  #      single-sample ADC glitches.
+  #   2. Median of the last 5 of those (75s), published once a minute.
+  #      Rejects a disturbance that lasts up to ~30s, which stage 1 can't.
+  #   3. Light averaging for the remaining +/-0.2% jitter.
+  # A real refill still comes through within ~1-2 minutes; usage is slow,
+  # so the lag doesn't matter.
   - platform: adc
     id: sender_voltage
     name: Sender Voltage
@@ -115,6 +124,13 @@ sensor:
           window_size: 15
           send_every: 15
           send_first_at: 15
+      - median:
+          window_size: 5
+          send_every: 4
+          send_first_at: 1
+      - exponential_moving_average:
+          alpha: 0.5
+          send_every: 1
 
   # Sender resistance in ohms. Use this entity while calibrating.
   - platform: resistance
